@@ -1,0 +1,61 @@
+##
+
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+use Bio::SeqIO;
+use Bio::Tools::SeqStats;
+use Bio::Tools::pICalculator;
+
+#
+# Chris Larsen, Anuj Bhatia, and Tom Briggs
+# UT Southwestern Medical Center and Vecna Technologies
+#
+# January 21, 2008
+#
+# Output format: 
+# gi <tab> iep <tab> mw_lower <tab> mw_upper <tab> do_lower_and_upper_differ
+#
+
+if (scalar(@ARGV) != 2) {
+  die("Usage: $0 INPUT_FILE OUTPUT_FILE\n");
+}
+my ($INFILE, $OUTFILE) = ($ARGV[0], $ARGV[1]);
+
+open (OUTFILE, "> $OUTFILE");
+
+print OUTFILE "gi\tiep\tmw_lower\tmw_upper\tdiff\n";
+
+# Fasta File Object
+my $entries = Bio::SeqIO->new('-file'   => $INFILE,
+                              '-format' => 'Fasta');
+
+# pI Calculator Object	
+my $calc = Bio::Tools::pICalculator->new(-places => 2,
+                                         -pKset => "EMBOSS");
+
+# iterate through each sequence
+while (my $seq = $entries->next_seq()){
+	#get gi
+	my $seqid = $seq->id;
+	my @gi = split(/\|/, $seqid);
+
+   my $strippedDefline = 1;
+   if (scalar(@gi) > 1) {
+      $strippedDefline = 0;
+   }
+	
+	#get mw (two var array)
+	my $seq_stats = Bio::Tools::SeqStats->new($seq);
+	my $weight = $seq_stats->get_mol_wt();
+	
+	#get iep
+	$calc->seq($seq);
+	my $iep = $calc->iep;
+
+   my $differ = ($$weight[0] != $$weight[1]) ? 't' : 'f';
+   my $giNumber = $strippedDefline ? $gi[0] : $gi[1];
+	print OUTFILE $giNumber . "\t" . $iep . "\t" . $$weight[0] . "\t" . $$weight[1] . "\t" . $differ . "\n";
+}
